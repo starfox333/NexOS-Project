@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "NexOS_v2",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["nexos_main.py"],
+      "port": 5000
+    }
+  ]
+}

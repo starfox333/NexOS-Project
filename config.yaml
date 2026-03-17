@@ -1,0 +1,108 @@
+# ═══════════════════════════════════════════════════════════
+#  NexOS — Configuration Globale
+#  Vie artificielle émergente
+# ═══════════════════════════════════════════════════════════
+
+grid:
+  size: 5000                   # Grille 5000x5000 -- continent (~25 km², optimise memoire)
+  energy_regen_rate: 0.5       # Régénération énergie par cycle
+  max_cell_energy: 200         # Énergie max par cellule
+  initial_energy_min: 50       # Énergie initiale min
+  initial_energy_max: 150      # Énergie initiale max
+
+time:
+  acceleration: 35             # 1 sec réelle = 35 sec virtuelles
+  cycle_delay: 0.05            # Pause entre cycles (sec réelles)
+
+life:
+  initial_population: 500      # ISOs au démarrage (monde x25 = pop x5)
+  emergence_threshold: 50000   # Cycles avant émergence complexe
+  max_population: 10000        # Population max (monde massif)
+  perception_radius: 12        # Rayon de perception ISO (monde plus grand)
+
+  energy:
+    start: 100                 # Énergie de départ
+    max: 200                   # Énergie maximale
+    move_cost: 2               # Coût déplacement
+    rest_recovery: 5           # Récupération au repos
+    reproduction_cost: 80      # Coût reproduction
+    reproduction_threshold: 150 # Seuil pour se reproduire
+    harvest_amount: 15         # Énergie récoltée du sol
+
+  learning:
+    learning_rate: 0.1         # Vitesse d'apprentissage
+    memory_capacity: 500       # Expériences mémorisées
+    exploration_rate: 0.3      # Probabilité exploration vs exploitation
+
+  genetics:
+    mutation_rate: 0.01        # Taux de mutation
+    traits:
+      speed: { min: 0.5, max: 2.0, default: 1.0 }
+      curiosity: { min: 0.1, max: 1.0, default: 0.5 }
+      efficiency: { min: 0.5, max: 1.5, default: 1.0 }
+      perception: { min: 3, max: 8, default: 5 }
+      resilience: { min: 0.5, max: 1.5, default: 1.0 }
+      intelligence: { min: 0.3, max: 1.0, default: 0.5 }
+
+  knowledge:
+    enabled: true
+    bonus_scale: 0.5
+    experience_growth: 0.005
+    cultural_transmission: 0.002
+    inheritance_factor: 0.3
+
+  communication:
+    enabled: true
+    signal_cost: 3.0
+    signal_radius: 10
+    signal_ttl: 20
+    max_signals: 1000
+
+  minerve:
+    enabled: true
+    teaching_radius: 80          # Rayon massif pour continent
+    teaching_rate: 0.01
+    move_speed: 8                # Tres rapide pour couvrir le continent
+    position: [2500, 2500]       # Centre du monde 5000x5000
+
+  tron:
+    enabled: true
+    protection_radius: 60        # Rayon massif
+    move_speed: 15               # Lightcycle rapide pour patrouiller le continent
+    shield_factor: 0.5
+    emergency_boost: 20
+    emergency_cooldown: 50
+    position: [1250, 1250]       # Quadrant sud-ouest
+
+  symmetra:
+    enabled: true
+    build_radius: 30             # Blocs plus grands
+    teaching_radius: 40
+    teaching_rate: 0.008
+    move_speed: 10               # Rapide pour batir partout
+    max_shelters: 200            # Beaucoup plus de structures pour le continent
+    build_cooldown: 30           # Construit plus vite
+    shelter_energy_bonus: 2.5
+    position: [3750, 3750]       # Quadrant nord-est
+    structures:
+      hex_monolith:
+        bonus: 4.0               # Bonus energie fort
+        durability: 9999         # Quasi-permanent
+        radius: 15               # Rayon d'effet
+
+  daedalus:
+    enabled: true
+    influence_radius: 70         # Rayon massif
+    action_rate: 0.02
+    move_speed: 8                # Rapide
+    position: [2500, 1250]       # Zone sud-centre
+
+server:
+  host: "127.0.0.1"
+  port: 5000
+  update_interval: 1.0        # Intervalle mise à jour client (sec)
+
+logging:
+  level: "INFO"
+  stats_interval: 100          # Affiche stats tous les N cycles
+  save_interval: 1000          # Sauvegarde état tous les N cycles

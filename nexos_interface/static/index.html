@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NexOS v3.1 -- Vie Artificielle</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div id="topbar">
+  <div id="title">NexOS <span class="version">v3.1</span></div>
+  <div id="menu-actions">
+    <button class="menu-btn" onclick="togglePause()" id="btn-pause">PAUSE</button>
+    <button class="menu-btn" onclick="resetSim()">RESET</button>
+    <button class="menu-btn" onclick="exportScreenshot()">SCREENSHOT</button>
+  </div>
+</div>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div id="main-layout">
+
+  <!-- LEFT SIDEBAR : Stats + Params -->
+  <div id="left-sidebar">
+    <div class="panel" id="stats-panel">
+      <div class="panel-title">STATISTIQUES</div>
+      <div class="stat-row"><span class="stat-label">TEMPS VIRTUEL</span><span class="stat-value" id="stat-time">--</span></div>
+      <div class="stat-row"><span class="stat-label">CYCLES</span><span class="stat-value" id="stat-cycles">0</span></div>
+      <div class="stat-row"><span class="stat-label">ISOs VIVANTS</span><span class="stat-value highlight" id="stat-isos">0</span></div>
+      <div class="stat-row"><span class="stat-label">NES / MORTS</span><span class="stat-value" id="stat-born-died">0 / 0</span></div>
+      <div class="stat-row"><span class="stat-label">GENERATION MAX</span><span class="stat-value highlight" id="stat-gen">0</span></div>
+      <div class="stat-row"><span class="stat-label">ENERGIE MOY.</span><span class="stat-value" id="stat-energy">0</span></div>
+      <div class="stat-row"><span class="stat-label">FITNESS MOY.</span><span class="stat-value" id="stat-fitness">0</span></div>
+      <div class="stat-row"><span class="stat-label">ENERGIE GRILLE</span><span class="stat-value" id="stat-grid-energy">0</span></div>
+      <div class="stat-row"><span class="stat-label">CONNAISSANCE</span><span class="stat-value gold" id="stat-knowledge">0</span></div>
+      <div class="stat-row"><span class="stat-label">INTELLIGENCE</span><span class="stat-value" id="stat-intelligence">0</span></div>
+      <div class="stat-row"><span class="stat-label">SIGNAUX</span><span class="stat-value" id="stat-signals">0</span></div>
+    </div>
+
+    <div class="panel" id="entities-panel">
+      <div class="panel-title">ENTITES</div>
+      <div class="stat-row"><span class="stat-label cyan">TRON</span><span class="stat-value cyan" id="stat-tron-mode">--</span></div>
+      <div class="stat-row"><span class="stat-label cyan">PROTEGES</span><span class="stat-value cyan" id="stat-tron-protected">0</span></div>
+      <div class="stat-row"><span class="stat-label cyan">SAUVES</span><span class="stat-value cyan" id="stat-tron-saved">0</span></div>
+      <div class="stat-row"><span class="stat-label gold">MINERVE</span><span class="stat-value gold" id="stat-minerve-students">0 eleves</span></div>
+      <div class="stat-row"><span class="stat-label magenta">SYMMETRA</span><span class="stat-value magenta" id="stat-sym-structures">0 structures</span></div>
+      <div class="stat-row"><span class="stat-label magenta">CONSTRUITS</span><span class="stat-value magenta" id="stat-sym-built" style="font-size:0.7em">aucune</span></div>
+      <div class="stat-row"><span class="stat-label" style="color:#9d4edd">DAEDALUS</span><span class="stat-value" style="color:#9d4edd" id="stat-daedalus-inspired">0</span></div>
+      <div class="stat-row"><span class="stat-label" style="color:#9d4edd">EXPLORATEURS</span><span class="stat-value" style="color:#9d4edd" id="stat-daedalus-seekers">0</span></div>
+    </div>
+
+    <div class="panel" id="params-panel">
+      <div class="panel-title">PARAMETRES</div>
+      <div class="param-row">
+        <label>VITESSE</label>
+        <input type="range" id="speed-slider" min="1" max="100" step="1" value="10">
+        <span id="speed-value">x1.0</span>
+      </div>
+    </div>
+
+    <div class="panel" id="legend-panel">
+      <div style="font-size:9px;color:rgba(0,255,213,0.3);line-height:1.6">
+        ZQSD : Deplacement | Souris : Orbite<br>
+        Molette : Zoom | Espace/Shift : Haut/Bas<br>
+        <span class="gold">*</span> Minerve
+        <span class="cyan">*</span> Tron
+        <span class="magenta">*</span> Symmetra
+        <span style="color:#9d4edd">*</span> Daedalus
+      </div>
+    </div>
+  </div>
+
+  <!-- CENTER : 3D Viewport -->
+  <div id="viewport">
+    <div id="scene"></div>
+    <div id="paused-overlay" style="display:none;">PAUSE</div>
+  </div>
+
+  <!-- RIGHT SIDEBAR : Chat IA + ISOs -->
+  <div id="right-sidebar">
+    <div class="panel" id="chat-panel">
+      <div class="panel-title">COMMUNICATION IA</div>
+      <div id="chat-tabs">
+        <button class="chat-tab active" data-target="system">Systeme</button>
+        <button class="chat-tab" data-target="minerve">Minerve</button>
+        <button class="chat-tab" data-target="tron">Tron</button>
+        <button class="chat-tab" data-target="symmetra">Symmetra</button>
+        <button class="chat-tab" data-target="daedalus">Daedalus</button>
+      </div>
+      <div id="chat-history"></div>
+      <div id="chat-input-row">
+        <input type="text" id="chat-input" placeholder="Parler a l'IA..." autocomplete="off">
+        <button id="chat-send" onclick="sendChat()">></button>
+      </div>
+    </div>
+
+    <div class="panel" id="iso-panel">
+      <div class="panel-title">ISOs ACTIFS (Top 15)</div>
+      <div id="iso-list"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== DAEDALUS TERMINAL (flottant, style Claude Code) ===== -->
+<div id="daedalus-terminal" class="daedalus-terminal">
+  <div id="daedalus-titlebar" class="daedalus-titlebar">
+    <div class="daedalus-titlebar-left">
+      <span class="daedalus-dot red"></span>
+      <span class="daedalus-dot yellow"></span>
+      <span class="daedalus-dot green"></span>
+    </div>
+    <div class="daedalus-titlebar-center">
+      <span class="daedalus-icon">&#9672;</span> DAEDALUS <span class="daedalus-version">v1.0</span>
+    </div>
+    <div class="daedalus-titlebar-right">
+      <button class="daedalus-btn-min" onclick="toggleDaedalusTerminal()" title="Reduire">&#8722;</button>
+    </div>
+  </div>
+  <div class="daedalus-body">
+    <div class="daedalus-status-bar">
+      <span class="daedalus-status-item"><span class="daedalus-status-dot active"></span> ACTIF</span>
+      <span class="daedalus-status-item" id="dterm-pos">POS (250, 125)</span>
+      <span class="daedalus-status-item" id="dterm-seekers">0 explorateurs</span>
+      <span class="daedalus-status-item" id="dterm-inspired">0 inspires</span>
+    </div>
+    <div class="daedalus-feed" id="daedalus-feed">
+      <div class="daedalus-feed-line system">[systeme] Terminal Daedalus initialise.</div>
+      <div class="daedalus-feed-line system">[systeme] Catalyseur d'innovation en ligne.</div>
+    </div>
+    <div class="daedalus-input-row">
+      <span class="daedalus-prompt">daedalus &gt;</span>
+      <input type="text" id="daedalus-input" placeholder="Poser une question a Daedalus..." autocomplete="off">
+    </div>
+  </div>
+</div>
+<button id="daedalus-toggle-btn" onclick="openDaedalusTerminal()" title="Ouvrir le terminal Daedalus">
+  <span class="daedalus-icon">&#9672;</span> DAEDALUS
+</button>
+
+<!-- BOTTOM : Console Debug -->
+<div id="console-bar">
+  <div id="console-header" onclick="toggleConsole()">
+    <span>CONSOLE DEBUG</span>
+    <span id="console-toggle">^</span>
+  </div>
+  <div id="console-content"></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="/grid.js"></script>
+</body>
+</html>

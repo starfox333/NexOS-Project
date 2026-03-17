@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a1a;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1a1a3a;stop-opacity:1" />
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <!-- Background -->
+  <rect width="128" height="128" rx="16" fill="url(#bg)"/>
+  <!-- Tron Circle -->
+  <circle cx="64" cy="56" r="32" fill="none" stroke="#00d4ff" stroke-width="2" filter="url(#glow)" opacity="0.8"/>
+  <!-- Triangle -->
+  <polygon points="64,28 40,72 88,72" fill="none" stroke="#00d4ff" stroke-width="2.5" filter="url(#glow)"/>
+  <!-- Inner dot -->
+  <circle cx="64" cy="56" r="4" fill="#00d4ff" filter="url(#glow)"/>
+  <!-- NexOS Text -->
+  <text x="64" y="105" text-anchor="middle" font-family="Arial, sans-serif" font-size="18" font-weight="bold" fill="#00d4ff" filter="url(#glow)">NexOS</text>
+</svg>
