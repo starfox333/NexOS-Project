@@ -9,6 +9,8 @@ grid:
   max_cell_energy: 200         # Énergie max par cellule
   initial_energy_min: 50       # Énergie initiale min
   initial_energy_max: 150      # Énergie initiale max
+  terrain_style: "tron"        # "tron" (géographique) ou "random" (bruit blanc)
+  diffusion_rate: 0.01         # Fraction d'énergie diffusant vers voisins par cycle (0=off)
 
 time:
   acceleration: 35             # 1 sec réelle = 35 sec virtuelles

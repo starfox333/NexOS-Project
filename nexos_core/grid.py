@@ -44,14 +44,17 @@ class Grid:
         # Grille d'energie (numpy pour la performance)
         self.energy = np.random.uniform(e_min, e_max, (size, size)).astype(np.float32)
 
-        # Terrain : 70% plaine, 20% fertile, 10% aride
+        # Terrain : style configurable
         # VECTORISE -- supporte des grilles de 10000+ sans lag
-        terrain_roll = np.random.random((size, size)).astype(np.float32)
-        # Encoder en int : 0=plain, 1=fertile, 2=barren
-        self.terrain_id = np.zeros((size, size), dtype=np.int8)
-        self.terrain_id[terrain_roll < 0.10] = 2  # barren (10%)
-        self.terrain_id[(terrain_roll >= 0.10) & (terrain_roll < 0.30)] = 1  # fertile (20%)
-        # le reste = 0 = plain (70%)
+        terrain_style = grid_cfg.get('terrain_style', 'tron')
+        if terrain_style == 'tron':
+            self.terrain_id = self._generate_tron_terrain()
+        else:
+            # Bruit blanc aleatoire (comportement original)
+            terrain_roll = np.random.random((size, size)).astype(np.float32)
+            self.terrain_id = np.zeros((size, size), dtype=np.int8)
+            self.terrain_id[terrain_roll < 0.10] = 2   # barren (10%)
+            self.terrain_id[(terrain_roll >= 0.10) & (terrain_roll < 0.30)] = 1  # fertile (20%)
 
         # Appliquer les multiplicateurs d'energie initiaux
         self.energy[self.terrain_id == 2] *= 0.3   # Aride = peu d'energie
@@ -62,6 +65,9 @@ class Grid:
         self._regen_mult[self.terrain_id == 1] = 2.0   # fertile x2
         self._regen_mult[self.terrain_id == 2] = 0.3   # barren x0.3
 
+        # Taux de diffusion d'energie entre cellules voisines
+        self._diffusion_rate = float(grid_cfg.get('diffusion_rate', 0.01))
+
         # Compat : terrain string pour get_cell()
         self._terrain_names = {0: 'plain', 1: 'fertile', 2: 'barren'}
 
@@ -69,6 +75,68 @@ class Grid:
         self.occupancy = np.zeros((size, size), dtype=np.int32)
 
         self.cycle = 0
+
+    def _generate_tron_terrain(self) -> np.ndarray:
+        """Genere un terrain inspire du monde Tron.
+
+        Geographie :
+        - Ville centrale  : zone fertile, haute regeneration (rayon 10%)
+        - Conduits        : 4 lignes fertiles (H, V, diag x2) traversant le monde
+        - Zone intermediaire : plaine + ilots fertiles epars
+        - Outlands        : peripherie aride hostile (dist > 65%)
+        """
+        size = self.size
+        cx, cz = size // 2, size // 2
+
+        # Matrices de coordonnees (float32 pour economiser la memoire)
+        xs = np.arange(size, dtype=np.float32)
+        zs = np.arange(size, dtype=np.float32)
+        X, Z = np.meshgrid(xs, zs, indexing='ij')
+
+        # Distance euclidienne depuis le centre (normalisee 0-1, 1=coin)
+        dist = np.sqrt((X - cx) ** 2 + (Z - cz) ** 2)
+        dist_norm = dist / (cx * 1.4143)  # ~sqrt(2) * cx
+
+        # Base : tout en plaine (0)
+        terrain = np.zeros((size, size), dtype=np.int8)
+
+        # --- Ville centrale : fertile ---
+        terrain[dist_norm < 0.10] = 1
+
+        # --- Conduits d'energie : fertile ---
+        w_main = max(20, size // 100)   # largeur principale (~50 cells sur 5000)
+        w_diag = max(10, size // 200)   # largeur diagonale (~25 cells sur 5000)
+
+        # Conduit horizontal (x autour du centre)
+        terrain[cx - w_main:cx + w_main, :] = 1
+        # Conduit vertical (z autour du centre)
+        terrain[:, cz - w_main:cz + w_main] = 1
+        # Conduit diagonal principal (|X - Z| < w_diag)
+        terrain[np.abs(X - Z) < w_diag] = 1
+        # Conduit anti-diagonal (|X + Z - size| < w_diag)
+        terrain[np.abs(X + Z - size) < w_diag] = 1
+
+        # --- Ilots fertiles epars dans la zone plaine ---
+        n_islands = 30
+        island_x = np.random.randint(w_main, size - w_main, n_islands)
+        island_z = np.random.randint(w_main, size - w_main, n_islands)
+        island_r = np.random.randint(30, 120, n_islands)
+
+        for i in range(n_islands):
+            ix, iz, ir = int(island_x[i]), int(island_z[i]), int(island_r[i])
+            x0, x1 = max(0, ix - ir), min(size, ix + ir)
+            z0, z1 = max(0, iz - ir), min(size, iz + ir)
+            sub_X = X[x0:x1, z0:z1]
+            sub_Z = Z[x0:x1, z0:z1]
+            sub_dist = np.sqrt((sub_X - ix) ** 2 + (sub_Z - iz) ** 2)
+            # Seulement sur les plaines (pas sur conduits, pas en outlands futurs)
+            mask = (sub_dist < ir) & (terrain[x0:x1, z0:z1] == 0)
+            terrain[x0:x1, z0:z1][mask] = 1
+
+        # --- Outlands : peripherie aride (ecrasent les conduits aux bords) ---
+        terrain[dist_norm > 0.65] = 2
+
+        return terrain
 
     def reset_energy(self):
         """Reinitialise l'energie de la grille."""
@@ -144,6 +212,20 @@ class Grid:
         self.energy += self.regen_rate * self._regen_mult
         np.clip(self.energy, 0, self.max_energy, out=self.energy)
 
+        # Diffusion d'energie : flux vers les cellules voisines appauvries
+        # Cree des gradients naturels que les ISOs peuvent suivre
+        if self._diffusion_rate > 0:
+            e = self.energy
+            avg = np.empty_like(e)
+            avg[1:-1, 1:-1] = (e[0:-2, 1:-1] + e[2:, 1:-1] +
+                               e[1:-1, 0:-2] + e[1:-1, 2:]) * 0.25
+            avg[0, :] = e[0, :]    # bords : pas de diffusion hors grille
+            avg[-1, :] = e[-1, :]
+            avg[:, 0] = e[:, 0]
+            avg[:, -1] = e[:, -1]
+            self.energy = (1.0 - self._diffusion_rate) * e + self._diffusion_rate * avg
+            np.clip(self.energy, 0, self.max_energy, out=self.energy)
+
     def get_energy_map(self, downsample: int = None) -> list:
         """Retourne la carte d'energie sous-echantillonnee pour le frontend.
         Downsample adaptatif selon la taille de la grille pour limiter le volume."""
@@ -209,6 +291,23 @@ class Grid:
             'resolution': int(res),
             'grid_size': self.size
         }
+
+    def get_zones(self) -> list:
+        """Retourne les zones geographiques du monde Tron (usage API / IA)."""
+        cx, cz = self.size // 2, self.size // 2
+        w = max(20, self.size // 100)
+        return [
+            {'name': 'City Center', 'cx': cx, 'cz': cz,
+             'radius': int(self.size * 0.10), 'terrain': 'fertile'},
+            {'name': 'Outlands',    'cx': cx, 'cz': cz,
+             'radius': int(self.size * 0.46), 'terrain': 'barren', 'outer': True},
+            {'name': 'H-Conduit',   'cx': cx, 'cz': cz, 'width': w, 'axis': 'x'},
+            {'name': 'V-Conduit',   'cx': cx, 'cz': cz, 'width': w, 'axis': 'z'},
+            {'name': 'D1-Conduit',  'cx': cx, 'cz': cz,
+             'width': max(10, self.size // 200), 'axis': 'diag'},
+            {'name': 'D2-Conduit',  'cx': cx, 'cz': cz,
+             'width': max(10, self.size // 200), 'axis': 'anti-diag'},
+        ]
 
     def get_stats(self) -> dict:
         return {
