@@ -47,6 +47,46 @@ floor.rotation.x = -Math.PI / 2;
 floor.position.set(GRID_CENTER, -0.1, GRID_CENTER);
 scene.add(floor);
 
+let tronFloorMesh = null;  // Sol GLB -- remplace le sol procedural apres chargement
+
+function loadGridFloor() {
+  if (typeof THREE.GLTFLoader === 'undefined') return;
+  const loader = new THREE.GLTFLoader();
+  loader.load('/models/tron_grid_floor.glb',
+    (gltf) => {
+      const model = gltf.scene;
+
+      // Dimensionner pour couvrir exactement GRID_SIZE x GRID_SIZE
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const scaleX = GRID_SIZE / (size.x || 1);
+      const scaleZ = GRID_SIZE / (size.z || 1);
+      const scale = Math.min(scaleX, scaleZ);  // uniforme -- garde les proportions
+      model.scale.setScalar(scale);
+
+      // Centrer sur le sol de la scene
+      const box2 = new THREE.Box3().setFromObject(model);
+      const center = new THREE.Vector3();
+      box2.getCenter(center);
+      model.position.x += GRID_CENTER - center.x;
+      model.position.z += GRID_CENTER - center.z;
+      model.position.y -= box2.min.y;  // poser au sol (y=0)
+
+      scene.add(model);
+      tronFloorMesh = model;
+
+      // Masquer le sol procedural
+      gridHelper.visible = false;
+      floor.visible = false;
+
+      console.log('[NexOS] Sol Tron GLB charge');
+    },
+    undefined,
+    (err) => console.warn('[NexOS] Echec chargement sol Tron:', err.message || err)
+  );
+}
+
 // ====================================================
 //  CAMERA CONTROLS (ZQSD + orbit souris)
 // ====================================================
@@ -1462,6 +1502,7 @@ function loadStructureModels() {
 
 animate();
 loadStructureModels();
+loadGridFloor();
 setInterval(fetchState, 1000);
 setInterval(fetchLogs, 3000);
 fetchState();
