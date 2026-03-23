@@ -89,6 +89,9 @@ class ISO:
         self.total_harvested = 0.0
         self.distance_traveled = 0.0
 
+        # Taux d'exploration (miroir de brain.memory.exploration_rate, modifiable par Daedalus)
+        self.exploration_chance = self.brain.memory.exploration_rate
+
     # --- CYCLE PRINCIPAL ---
 
     def perceive(self, grid, signal_board=None):

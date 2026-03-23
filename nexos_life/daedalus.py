@@ -62,7 +62,7 @@ class Daedalus:
         # 2. Emettre un signal d'innovation
         if signal_board and self.cycles_active % 15 == 0:
             signal_board.emit(
-                self.x, self.z, 'INNOVATION', sender_id=-2,
+                self.x, self.z, 'INNOVATION', sender_id=-4,
                 radius=self.influence_radius
             )
 
@@ -99,11 +99,13 @@ class Daedalus:
                     iso.genes.get('curiosity', 0.5) + effective_rate * 0.01
                 )
 
-                # Augmenter le taux d'exploration
-                iso.exploration_chance = min(
+                # Augmenter le taux d'exploration dans le cerveau (via brain.memory)
+                iso.brain.memory.exploration_rate = min(
                     0.8,
-                    getattr(iso, 'exploration_chance', 0.3) + effective_rate * 0.02
+                    iso.brain.memory.exploration_rate + effective_rate * 0.02
                 )
+                # Synchroniser l'attribut de surface pour le suivi des zones
+                iso.exploration_chance = iso.brain.memory.exploration_rate
 
                 self.total_questions_asked += 1
                 seekers += 1

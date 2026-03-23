@@ -9,12 +9,13 @@ from typing import List, Optional
 
 # Types de signaux -- toujours veridiques
 SIGNAL_TYPES = {
-    'FOOD_HERE':  {'color': '#00ff00', 'description': 'Nourriture ici'},
-    'DANGER':     {'color': '#ff4444', 'description': 'Danger (energie basse)'},
-    'COME_HERE':  {'color': '#00aaff', 'description': 'Viens ici'},
-    'NEED_HELP':  {'color': '#ff8800', 'description': "Besoin d'aide"},
-    'WISDOM':     {'color': '#ffd700', 'description': 'Sagesse de Minerve'},
-    'PROTECTION': {'color': '#00e5ff', 'description': 'Protection de Tron'},
+    'FOOD_HERE':   {'color': '#00ff00', 'description': 'Nourriture ici'},
+    'DANGER':      {'color': '#ff4444', 'description': 'Danger (energie basse)'},
+    'COME_HERE':   {'color': '#00aaff', 'description': 'Viens ici'},
+    'NEED_HELP':   {'color': '#ff8800', 'description': "Besoin d'aide"},
+    'WISDOM':      {'color': '#ffd700', 'description': 'Sagesse de Minerve'},
+    'PROTECTION':  {'color': '#00e5ff', 'description': 'Protection de Tron'},
+    'INNOVATION':  {'color': '#cc00ff', 'description': "Curiosite de Daedalus"},
 }
 
 
