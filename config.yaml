@@ -106,3 +106,23 @@ logging:
   level: "INFO"
   stats_interval: 100          # Affiche stats tous les N cycles
   save_interval: 1000          # Sauvegarde état tous les N cycles
+
+# ═══════════════════════════════════════════════════════════
+#  BASE DE DONNEES TRON GRID (SQLite)
+#  Schema inspire de l'univers du film Tron
+#  "End of line." -- MCP
+# ═══════════════════════════════════════════════════════════
+database:
+  enabled: true
+  session_name: "NexOS_Grid"         # Nom de la session dans THE_GRID
+  path: "data/tron_grid.db"          # Chemin vers la base SQLite
+
+  # Quoi sauvegarder dans la DB (en plus du JSON)
+  save_identity_discs: true          # Connaissances + besoins des ISOs
+  save_qtable: false                 # Q-tables (lourd -- desactive par defaut)
+  save_trails: false                 # Sillons de deplacement (tres lourd)
+  save_signals: true                 # Signaux entre programmes
+
+  # Frequences de snapshot (en cycles)
+  sector_snapshot_interval: 100      # Carte d'energie par secteur
+  stats_interval: 50                 # Stats de population

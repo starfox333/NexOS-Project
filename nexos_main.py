@@ -19,6 +19,7 @@ from nexos_core.grid import Grid
 from nexos_core.time_system import VirtualTime
 from nexos_life.population import Population
 from nexos_core.save_manager import save_state, load_state, restore_simulation, has_save, delete_save
+from nexos_core.tron_database import TronDatabase
 
 
 def print_banner():
@@ -68,7 +69,7 @@ class SimControl:
         return max(0.01, self.base_delay / max(0.1, self.speed))
 
 
-def life_loop(config, grid, vtime, population, running_flag, control):
+def life_loop(config, grid, vtime, population, running_flag, control, tron_db=None):
     """Boucle principale de vie artificielle"""
     stats_interval = get(config, 'logging', 'stats_interval', default=100)
     save_interval = get(config, 'logging', 'save_interval', default=1000)
@@ -142,9 +143,11 @@ def life_loop(config, grid, vtime, population, running_flag, control):
             stats = population.get_stats()
             control.log(f"Cycle {vtime.get_cycles()} | {stats['alive']} ISOs | Gen {stats['max_generation']} | E:{stats['avg_energy']:.0f}", "info")
 
-        # 7b. Auto-save periodique
+        # 7b. Auto-save periodique (JSON + DB SQLite)
         if vtime.get_cycles() % save_interval == 0 and vtime.get_cycles() > 0:
             save_state(grid, vtime, population, config)
+            if tron_db:
+                tron_db.full_save(grid, vtime, population, vtime.get_cycles())
             control.log(f"Auto-save cycle {vtime.get_cycles()}", "info")
 
         # 8. Pause adaptee a la vitesse
@@ -177,6 +180,18 @@ def main():
         print("  Nouvelle simulation")
         initial_count = get(config, 'life', 'initial_population', default=10)
         population.spawn_initial(grid, initial_count)
+
+    # Initialiser la base de donnees Tron Grid
+    db_enabled = get(config, 'database', 'enabled', default=True)
+    tron_db = None
+    if db_enabled:
+        tron_db = TronDatabase()
+        if tron_db.connect():
+            grid_session_name = get(config, 'database', 'session_name', default='NexOS_Grid')
+            tron_db.init_grid(grid_size=grid_size, session_name=grid_session_name)
+            print("  Base de donnees Tron Grid active")
+        else:
+            tron_db = None
 
     # Flag d'arret propre
     running = {'run': True}
@@ -226,7 +241,7 @@ def main():
 
     # Boucle de vie principale
     try:
-        life_loop(config, grid, vtime, population, running, control)
+        life_loop(config, grid, vtime, population, running, control, tron_db=tron_db)
     except KeyboardInterrupt:
         pass
 
@@ -234,6 +249,10 @@ def main():
     print("")
     print("  Sauvegarde en cours...")
     save_state(grid, vtime, population, config)
+    if tron_db:
+        tron_db.full_save(grid, vtime, population, vtime.get_cycles())
+        tron_db.suspend_grid()
+        tron_db.close()
 
     # Fin
     print("")
