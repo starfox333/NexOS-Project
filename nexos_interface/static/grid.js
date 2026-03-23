@@ -28,24 +28,58 @@ dirLight.position.set(100, 200, 100);
 scene.add(dirLight);
 
 // ====================================================
-//  SOL -- Grille Tron
+//  SOL -- Grille Tron (verre noir poli + lignes cyan)
 // ====================================================
 
 const GRID_SIZE = 500;
 const GRID_CENTER = GRID_SIZE / 2;
 
-const gridHelper = new THREE.GridHelper(GRID_SIZE, 50, 0x003322, 0x001a11);
-gridHelper.position.set(GRID_CENTER, 0, GRID_CENTER);
+// Grille principale : lignes cyan lumineuses (grosses mailles)
+const gridHelper = new THREE.GridHelper(GRID_SIZE, 25, 0x00e5ff, 0x004455);
+gridHelper.position.set(GRID_CENTER, 0.01, GRID_CENTER);
 scene.add(gridHelper);
 
+// Grille fine par-dessus : detail de dalle (subdivisions x5)
+const gridFine = new THREE.GridHelper(GRID_SIZE, 125, 0x002233, 0x001122);
+gridFine.position.set(GRID_CENTER, 0.005, GRID_CENTER);
+scene.add(gridFine);
+
+// Surface : verre noir miroir, reflechissant
 const floorGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
 const floorMat = new THREE.MeshStandardMaterial({
-  color: 0x000a0a, metalness: 0.9, roughness: 0.2, transparent: true, opacity: 0.8
+  color: 0x000508,
+  metalness: 1.0,
+  roughness: 0.05,
+  transparent: true,
+  opacity: 0.95,
+  envMapIntensity: 1.0,
 });
 const floor = new THREE.Mesh(floorGeo, floorMat);
 floor.rotation.x = -Math.PI / 2;
-floor.position.set(GRID_CENTER, -0.1, GRID_CENTER);
+floor.position.set(GRID_CENTER, 0, GRID_CENTER);
 scene.add(floor);
+
+// Halo de bord : lueur cyan sur les 4 bords de la grille
+const edgePositions = [
+  [GRID_CENTER, 0, 0],           // bord nord
+  [GRID_CENTER, 0, GRID_SIZE],   // bord sud
+  [0, 0, GRID_CENTER],           // bord ouest
+  [GRID_SIZE, 0, GRID_CENTER],   // bord est
+];
+const edgeLengths = [GRID_SIZE, GRID_SIZE, GRID_SIZE, GRID_SIZE];
+edgePositions.forEach((pos, i) => {
+  const isNS = i < 2;
+  const w = isNS ? GRID_SIZE : 2;
+  const h = isNS ? 2 : GRID_SIZE;
+  const edgeGeo = new THREE.PlaneGeometry(w, h);
+  const edgeMat = new THREE.MeshBasicMaterial({
+    color: 0x00e5ff, transparent: true, opacity: 0.18, side: THREE.DoubleSide
+  });
+  const edge = new THREE.Mesh(edgeGeo, edgeMat);
+  edge.rotation.x = -Math.PI / 2;
+  edge.position.set(pos[0], 0.02, pos[2]);
+  scene.add(edge);
+});
 
 let tronFloorMesh = null;  // Sol GLB -- remplace le sol procedural apres chargement
 
@@ -78,6 +112,7 @@ function loadGridFloor() {
 
       // Masquer le sol procedural
       gridHelper.visible = false;
+      gridFine.visible = false;
       floor.visible = false;
 
       console.log('[NexOS] Sol Tron GLB charge');
