@@ -98,7 +98,7 @@ life:
     position: [2500, 1250]       # Zone sud-centre
 
 server:
-  host: "127.0.0.1"
+  host: "0.0.0.0"
   port: 5000
   update_interval: 1.0        # Intervalle mise à jour client (sec)
 

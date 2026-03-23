@@ -215,7 +215,8 @@ def main():
                                'response': _generate_chat_response(t, m.lower().strip()),
                                'target': t
                            })
-        ws_server.start(host='127.0.0.1', port=5001)
+        ws_host = get(config, 'server', 'host', default='127.0.0.1')
+        ws_server.start(host=ws_host, port=5001)
     except ImportError as e:
         print(f"  WebSocket Godot non disponible : {e}")
     except Exception as e:
