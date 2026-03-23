@@ -11,6 +11,8 @@ grid:
   initial_energy_max: 150      # Énergie initiale max
   terrain_style: "tron"        # "tron" (géographique) ou "random" (bruit blanc)
   diffusion_rate: 0.01         # Fraction d'énergie diffusant vers voisins par cycle (0=off)
+  day_length: 500              # Cycles par jour (500 cycles ~= 25s réels à x35)
+  season_length: 4000          # Cycles par saison (4 saisons = 1 année = 16000 cycles)
 
 time:
   acceleration: 35             # 1 sec réelle = 35 sec virtuelles

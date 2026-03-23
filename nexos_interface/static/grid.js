@@ -1429,6 +1429,50 @@ function updateIsoList(isos) {
 let lastMinervePos = null;
 let lastTronPos = null;
 
+// ====================================================
+//  PHYSIQUE ENVIRONNEMENTALE : jour/nuit + saisons
+// ====================================================
+
+const SEASON_COLORS = {
+  printemps: { fog: 0x000d1a, ambient: 0x003355, dir: 0x00ffcc, ambInt: 0.7, dirInt: 0.35 },
+  ete:       { fog: 0x001022, ambient: 0x004466, dir: 0x00ffd5, ambInt: 0.9, dirInt: 0.5  },
+  automne:   { fog: 0x080806, ambient: 0x221100, dir: 0xff8844, ambInt: 0.6, dirInt: 0.3  },
+  hiver:     { fog: 0x020408, ambient: 0x001122, dir: 0x8899ff, ambInt: 0.4, dirInt: 0.2  },
+};
+
+function updatePhysics(physics) {
+  const phase   = physics.day_phase  || 0;   // 0=minuit, 0.5=midi
+  const season  = physics.season     || 'ete';
+  const dayMult = physics.day_mult   || 1.0;
+  const sc      = SEASON_COLORS[season] || SEASON_COLORS.ete;
+
+  // Facteur nuit (0=minuit plein, 1=midi plein)
+  const nightFactor = Math.max(0, Math.min(1, (dayMult - 0.2) / 1.3));
+
+  // Brouillard : plus dense la nuit, plus leger le jour
+  const fogDensity = 0.003 - nightFactor * 0.0018;
+  scene.fog.density = fogDensity;
+  scene.fog.color.setHex(sc.fog);
+
+  // Lumiere ambiante
+  ambient.color.setHex(sc.ambient);
+  ambient.intensity = sc.ambInt * (0.3 + 0.7 * nightFactor);
+
+  // Lumiere directionnelle (soleil/lune)
+  dirLight.color.setHex(phase < 0.2 || phase > 0.8 ? 0x223366 : sc.dir);
+  dirLight.intensity = sc.dirInt * nightFactor;
+
+  // Sol : reflet plus intense le jour
+  if (floorMat) floorMat.roughness = 0.05 + (1 - nightFactor) * 0.12;
+
+  // Affichage UI
+  const hour   = physics.hour !== undefined ? physics.hour : Math.floor(phase * 24);
+  const hStr   = String(hour).padStart(2, '0') + 'h00';
+  const regen  = physics.effective_regen !== undefined ? physics.effective_regen.toFixed(3) : '--';
+  const el = document.getElementById('stat-physics');
+  if (el) el.textContent = `${season.toUpperCase()} ${hStr}  regen×${regen}`;
+}
+
 async function fetchState() {
   try {
     const resp = await fetch('/api/state');
@@ -1456,6 +1500,9 @@ async function fetchState() {
     updateIsoMeshes(data.isos || [], lastMinervePos, lastTronPos);
     updateEnergyMap(data.energy_map || []);
     updateSignals(data.signals || []);
+
+    // Physique : jour/nuit + saisons
+    if (data.physics) updatePhysics(data.physics);
   } catch (e) {
     console.warn('Fetch error:', e);
   }

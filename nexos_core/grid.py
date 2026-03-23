@@ -68,6 +68,12 @@ class Grid:
         # Taux de diffusion d'energie entre cellules voisines
         self._diffusion_rate = float(grid_cfg.get('diffusion_rate', 0.01))
 
+        # Physique : cycle jour/nuit et saisons
+        self._day_length    = int(grid_cfg.get('day_length', 500))
+        self._year_length   = int(grid_cfg.get('season_length', 4000)) * 4
+        self._day_mult      = 1.0   # mis a jour chaque cycle
+        self._season_mult   = 1.0   # mis a jour chaque cycle
+
         # Compat : terrain string pour get_cell()
         self._terrain_names = {0: 'plain', 1: 'fertile', 2: 'barren'}
 
@@ -208,8 +214,20 @@ class Grid:
         VECTORISE : supporte des grilles de 10000x10000 sans lag."""
         self.cycle += 1
 
-        # Regeneration vectorisee (pas de boucle Python)
-        self.energy += self.regen_rate * self._regen_mult
+        # --- Physique : cycle jour/nuit ---
+        # phase 0=minuit, 0.5=midi -- sinusoide douce
+        day_phase = (self.cycle % self._day_length) / max(1, self._day_length)
+        # nuit : 0.2x, midi : 1.5x  (sin decale de -pi/2 pour que midi=peak)
+        self._day_mult = float(0.2 + 1.3 * (np.sin(2 * np.pi * day_phase - np.pi * 0.5) * 0.5 + 0.5))
+
+        # --- Physique : saisons ---
+        # printemps=pic, hiver=creux  (sin, 1 annee = _year_length cycles)
+        year_phase = (self.cycle % self._year_length) / max(1, self._year_length)
+        self._season_mult = float(0.95 + 0.55 * np.sin(2 * np.pi * year_phase))
+
+        # Regeneration avec multiplicateurs physiques
+        effective_regen = self.regen_rate * self._day_mult * self._season_mult
+        self.energy += effective_regen * self._regen_mult
         np.clip(self.energy, 0, self.max_energy, out=self.energy)
 
         # Diffusion d'energie : flux vers les cellules voisines appauvries
@@ -308,6 +326,23 @@ class Grid:
             {'name': 'D2-Conduit',  'cx': cx, 'cz': cz,
              'width': max(10, self.size // 200), 'axis': 'anti-diag'},
         ]
+
+    def get_physics_state(self) -> dict:
+        """Etat de la physique environnementale (jour/nuit, saison)."""
+        day_phase  = (self.cycle % self._day_length)  / max(1, self._day_length)
+        year_phase = (self.cycle % self._year_length) / max(1, self._year_length)
+        season_idx = int(year_phase * 4) % 4
+        hour       = int(day_phase * 24)
+        return {
+            'day_phase':       round(day_phase, 3),
+            'hour':            hour,
+            'is_day':          0.2 < day_phase < 0.8,
+            'day_mult':        round(self._day_mult, 3),
+            'year_phase':      round(year_phase, 3),
+            'season':          ['printemps', 'ete', 'automne', 'hiver'][season_idx],
+            'season_mult':     round(self._season_mult, 3),
+            'effective_regen': round(self._day_mult * self._season_mult * self.regen_rate, 4),
+        }
 
     def get_stats(self) -> dict:
         return {

@@ -63,6 +63,10 @@ def create_app(config, grid, vtime, population, control=None):
         except Exception:
             state['grid'] = {}
         try:
+            state['physics'] = _grid.get_physics_state()
+        except Exception:
+            state['physics'] = {}
+        try:
             state['population'] = _population.get_stats()
         except Exception:
             state['population'] = {'alive': 0}
