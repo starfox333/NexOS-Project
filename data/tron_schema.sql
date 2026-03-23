@@ -6,16 +6,21 @@
 --
 -- Terminologie :
 --   THE_GRID      = le monde numerique (simulation)
---   PROGRAMS      = les ISOs (algorithmes isomorphiques)
---   IDENTITY_DISCS= memoires/connaissances des programmes
---   GUARDIANS     = entites speciales immortelles
+--   ISOS          = algorithmes isomorphiques (emergence naturelle du Grid)
+--   IDENTITY_DISCS= memoires/connaissances des ISOs
+--   GUARDIANS     = entites speciales immortelles (Tron, Minerve, Symmetra, Daedalus)
 --   LIGHT_TRAILS  = historique de deplacements (sillons de lightcycle)
---   SIGNAL_BEACONS= communications entre programmes
+--   SIGNAL_BEACONS= communications entre ISOs
 --   STRUCTURES    = constructions de Symmetra
 --   ENERGY_SECTORS= carte energetique du Grid par secteur
---   DEREZZED_LOG  = archive des programmes morts (de-rezzes)
+--   DEREZZED_LOG  = archive des ISOs morts (de-rezzes)
 --   RECOGNITION_EVENTS = journal des evenements marquants
 --   POPULATION_STATS   = statistiques periodiques de la population
+--
+-- Note sur la distinction Tron :
+--   - PROGRAMS = crees par les Users (dans le film : Tron, CLU, Rinzler...)
+--   - ISOS     = Isomorphic Algorithms, emerges naturellement du Grid
+--   Nos entites vivantes sont des ISOs, pas des programmes.
 -- =============================================================================
 
 PRAGMA journal_mode = WAL;
@@ -54,13 +59,14 @@ CREATE TABLE IF NOT EXISTS CYCLES (
 CREATE INDEX IF NOT EXISTS idx_cycles_grid ON CYCLES (grid_id, cycle_number DESC);
 
 -- =============================================================================
--- PROGRAMS : ISOs (Algorithmes Isomorphiques)
--- Les entites vivantes du Grid -- "les programmes qui ont emerge naturellement"
+-- ISOS : Algorithmes Isomorphiques
+-- Entites vivantes du Grid -- emergees naturellement de la simulation
+-- "Les ISOs... la vie meme. Emergeant du systeme." -- Kevin Flynn
 -- =============================================================================
-CREATE TABLE IF NOT EXISTS PROGRAMS (
-    program_id     INTEGER PRIMARY KEY,            -- = ISO.id
+CREATE TABLE IF NOT EXISTS ISOS (
+    iso_id         INTEGER PRIMARY KEY,              -- = ISO.id
     grid_id        INTEGER NOT NULL REFERENCES THE_GRID(grid_id) ON DELETE CASCADE,
-    designation    TEXT    NOT NULL DEFAULT 'ISO', -- ISO | RECOM | EVOLVED
+    designation    TEXT    NOT NULL DEFAULT 'ISO',   -- ISO | EVOLVED | ELDER
     pos_x          INTEGER NOT NULL,
     pos_z          INTEGER NOT NULL,
     energy_level   REAL    NOT NULL DEFAULT 100.0,
@@ -83,26 +89,26 @@ CREATE TABLE IF NOT EXISTS PROGRAMS (
     total_harvested    REAL NOT NULL DEFAULT 0.0,
     distance_traveled  REAL NOT NULL DEFAULT 0.0,
     -- Filiation (lignee)
-    parent_alpha_id    INTEGER REFERENCES PROGRAMS(program_id),  -- parent 1
-    parent_beta_id     INTEGER REFERENCES PROGRAMS(program_id),  -- parent 2
+    parent_alpha_id    INTEGER REFERENCES ISOS(iso_id),  -- parent 1
+    parent_beta_id     INTEGER REFERENCES ISOS(iso_id),  -- parent 2
     -- Horodatages
-    compiled_at        DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),  -- naissance
-    derezzed_at        DATETIME,                                                   -- mort
+    emerged_at         DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),  -- naissance (emergence)
+    derezzed_at        DATETIME,                                                   -- mort (de-rez)
     last_cycle         INTEGER  NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_programs_grid   ON PROGRAMS (grid_id, status);
-CREATE INDEX IF NOT EXISTS idx_programs_pos    ON PROGRAMS (pos_x, pos_z);
-CREATE INDEX IF NOT EXISTS idx_programs_parent ON PROGRAMS (parent_alpha_id, parent_beta_id);
+CREATE INDEX IF NOT EXISTS idx_isos_grid   ON ISOS (grid_id, status);
+CREATE INDEX IF NOT EXISTS idx_isos_pos    ON ISOS (pos_x, pos_z);
+CREATE INDEX IF NOT EXISTS idx_isos_parent ON ISOS (parent_alpha_id, parent_beta_id);
 
 -- =============================================================================
--- IDENTITY_DISCS : memoires et connaissances des programmes
--- "Ton disque est ta vie" -- CLU
--- Chaque programme possede un disque unique contenant son savoir et sa Q-table
+-- IDENTITY_DISCS : memoires et connaissances des ISOs
+-- "Ton disque est ta vie. Tout ce que tu es est la-dedans." -- CLU
+-- Chaque ISO possede un disque unique contenant son savoir et sa Q-table
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS IDENTITY_DISCS (
     disc_id        INTEGER PRIMARY KEY AUTOINCREMENT,
-    program_id     INTEGER NOT NULL REFERENCES PROGRAMS(program_id) ON DELETE CASCADE,
+    iso_id         INTEGER NOT NULL REFERENCES ISOS(iso_id) ON DELETE CASCADE,
     -- Domaines de connaissance (0.0 - 1.0)
     know_physics       REAL NOT NULL DEFAULT 0.0,
     know_social        REAL NOT NULL DEFAULT 0.0,
@@ -120,14 +126,15 @@ CREATE TABLE IF NOT EXISTS IDENTITY_DISCS (
     -- Metadata
     last_updated   DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now')),
     cycle_recorded INTEGER NOT NULL DEFAULT 0,
-    UNIQUE (program_id)  -- un seul disque par programme
+    UNIQUE (iso_id)  -- un seul disque par ISO
 );
 
-CREATE INDEX IF NOT EXISTS idx_discs_program ON IDENTITY_DISCS (program_id);
+CREATE INDEX IF NOT EXISTS idx_discs_iso ON IDENTITY_DISCS (iso_id);
 
 -- =============================================================================
 -- GUARDIANS : entites speciales immortelles du Grid
 -- TRON = Protecteur | MINERVE = Sage | SYMMETRA = Architecte | DAEDALUS = Navigateur
+-- Ce sont des PROGRAMMES crees avec un but -- pas des ISOs
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS GUARDIANS (
     guardian_id    INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -147,13 +154,13 @@ CREATE TABLE IF NOT EXISTS GUARDIANS (
 
 -- =============================================================================
 -- LIGHT_TRAILS : sillons de deplacement (comme les trails de lightcycle)
--- Historique de positions pour chaque entite (programmes + gardiens)
+-- Historique de positions pour chaque entite (ISOs + gardiens)
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS LIGHT_TRAILS (
     trail_id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    entity_id     INTEGER NOT NULL,   -- program_id ou guardian_id
-    entity_type   TEXT    NOT NULL    -- PROGRAM | GUARDIAN
-                          CHECK (entity_type IN ('PROGRAM', 'GUARDIAN')),
+    entity_id     INTEGER NOT NULL,   -- iso_id ou guardian_id
+    entity_type   TEXT    NOT NULL    -- ISO | GUARDIAN
+                          CHECK (entity_type IN ('ISO', 'GUARDIAN')),
     pos_x         INTEGER NOT NULL,
     pos_z         INTEGER NOT NULL,
     cycle_number  INTEGER NOT NULL,
@@ -166,7 +173,7 @@ CREATE INDEX IF NOT EXISTS idx_trails_entity ON LIGHT_TRAILS (entity_id, entity_
 CREATE INDEX IF NOT EXISTS idx_trails_cycle  ON LIGHT_TRAILS (cycle_number);
 
 -- =============================================================================
--- SIGNAL_BEACONS : phares de communication entre programmes
+-- SIGNAL_BEACONS : phares de communication entre ISOs
 -- Types : FOOD_HERE | DANGER | COME_HERE | NEED_HELP | WISDOM | PROTECTION
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS SIGNAL_BEACONS (
@@ -240,12 +247,12 @@ CREATE INDEX IF NOT EXISTS idx_sectors_grid  ON ENERGY_SECTORS (grid_id, cycle_n
 CREATE INDEX IF NOT EXISTS idx_sectors_coord ON ENERGY_SECTORS (sector_x, sector_z);
 
 -- =============================================================================
--- DEREZZED_LOG : archive des programmes morts (de-rezzes)
--- Conserver toute l'histoire de vie d'un programme apres sa mort
+-- DEREZZED_LOG : archive des ISOs morts (de-rezzes)
+-- Conserver toute l'histoire de vie d'un ISO apres sa deresolution
 -- =============================================================================
 CREATE TABLE IF NOT EXISTS DEREZZED_LOG (
     log_id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    program_id       INTEGER NOT NULL,
+    iso_id           INTEGER NOT NULL,
     grid_id          INTEGER REFERENCES THE_GRID(grid_id),
     derez_cause      TEXT    NOT NULL DEFAULT 'starvation'
                              CHECK (derez_cause IN ('starvation', 'old_age', 'energy_drain', 'unknown')),
@@ -290,7 +297,7 @@ CREATE TABLE IF NOT EXISTS RECOGNITION_EVENTS (
     cycle_number  INTEGER NOT NULL,
     event_type    TEXT    NOT NULL
                           CHECK (event_type IN (
-                              'BIRTH', 'DEATH', 'REPRODUCTION',
+                              'EMERGENCE', 'DEREZ', 'REPRODUCTION',
                               'STRUCTURE_BUILT', 'STRUCTURE_DEMOLISHED',
                               'GUARDIAN_ACTION', 'KNOWLEDGE_PEAK',
                               'POPULATION_MILESTONE', 'EXTINCTION_RISK',
@@ -299,7 +306,7 @@ CREATE TABLE IF NOT EXISTS RECOGNITION_EVENTS (
                               'SIMULATION_PAUSE', 'SIMULATION_RESET'
                           )),
     entity_id     INTEGER,   -- ISO id, guardian id, structure id...
-    entity_type   TEXT,      -- PROGRAM | GUARDIAN | STRUCTURE | SIMULATION
+    entity_type   TEXT,      -- ISO | GUARDIAN | STRUCTURE | SIMULATION
     description   TEXT,
     data_json     TEXT,      -- donnees supplementaires (JSON)
     recorded_at   DATETIME DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now'))
@@ -337,25 +344,25 @@ CREATE INDEX IF NOT EXISTS idx_stats_grid ON POPULATION_STATS (grid_id, cycle_nu
 -- "Regarde le Grid, il te dira tout." -- Rinzler
 -- =============================================================================
 
--- Vue : programmes actifs avec leurs connaissances
-CREATE VIEW IF NOT EXISTS v_active_programs AS
+-- Vue : ISOs actifs avec leurs connaissances
+CREATE VIEW IF NOT EXISTS v_active_isos AS
 SELECT
-    p.program_id,
-    p.designation,
-    p.pos_x,
-    p.pos_z,
-    p.energy_level,
-    p.generation,
-    p.age,
-    p.gene_speed,
-    p.gene_intelligence,
+    i.iso_id,
+    i.designation,
+    i.pos_x,
+    i.pos_z,
+    i.energy_level,
+    i.generation,
+    i.age,
+    i.gene_speed,
+    i.gene_intelligence,
     COALESCE(d.know_physics, 0) + COALESCE(d.know_social, 0) +
     COALESCE(d.know_ecology, 0) + COALESCE(d.know_logic, 0) +
     COALESCE(d.know_communication, 0) AS total_knowledge,
-    p.last_cycle
-FROM PROGRAMS p
-LEFT JOIN IDENTITY_DISCS d ON p.program_id = d.program_id
-WHERE p.status = 'ACTIVE';
+    i.last_cycle
+FROM ISOS i
+LEFT JOIN IDENTITY_DISCS d ON i.iso_id = d.iso_id
+WHERE i.status = 'ACTIVE';
 
 -- Vue : derniere position des gardiens
 CREATE VIEW IF NOT EXISTS v_guardians_status AS
@@ -373,10 +380,10 @@ FROM GUARDIANS g;
 -- Vue : top 10 ISOs les plus savants
 CREATE VIEW IF NOT EXISTS v_knowledge_elite AS
 SELECT
-    p.program_id,
-    p.generation,
-    p.age,
-    p.energy_level,
+    i.iso_id,
+    i.generation,
+    i.age,
+    i.energy_level,
     d.know_physics,
     d.know_social,
     d.know_ecology,
@@ -384,9 +391,9 @@ SELECT
     d.know_communication,
     (d.know_physics + d.know_social + d.know_ecology +
      d.know_logic + d.know_communication) / 5.0 AS avg_knowledge
-FROM PROGRAMS p
-JOIN IDENTITY_DISCS d ON p.program_id = d.program_id
-WHERE p.status = 'ACTIVE'
+FROM ISOS i
+JOIN IDENTITY_DISCS d ON i.iso_id = d.iso_id
+WHERE i.status = 'ACTIVE'
 ORDER BY avg_knowledge DESC
 LIMIT 10;
 

@@ -7,16 +7,20 @@ Base de donnees SQLite inspiree de l'univers du film Tron.
 Tables :
   THE_GRID         -- sessions de simulation
   CYCLES           -- unites de temps virtuelles
-  PROGRAMS         -- ISOs (algorithmes isomorphiques)
+  ISOS             -- algorithmes isomorphiques (emergence naturelle)
   IDENTITY_DISCS   -- memoires / connaissances / Q-tables
-  GUARDIANS        -- entites speciales immortelles
+  GUARDIANS        -- entites speciales immortelles (programmes crees)
   LIGHT_TRAILS     -- sillons de deplacement
-  SIGNAL_BEACONS   -- communications entre programmes
+  SIGNAL_BEACONS   -- communications entre ISOs
   STRUCTURES       -- constructions de Symmetra
   ENERGY_SECTORS   -- carte energetique par secteur
   DEREZZED_LOG     -- archive des ISOs morts
   RECOGNITION_EVENTS -- journal des evenements marquants
   POPULATION_STATS   -- instantanes de population
+
+Note Tron :
+  Programs = crees par les Users (Tron, CLU, Rinzler...)
+  ISOs     = emerges naturellement du Grid (vie artificielle)
 """
 
 import os
@@ -40,8 +44,8 @@ class TronDatabase:
         db = TronDatabase()
         db.connect()
         grid_id = db.init_grid(grid_size=200)
-        db.save_programs(grid_id, population.isos)
-        db.save_population_stats(grid_id, cycle, stats)
+        db.save_isos(population.isos, cycle)
+        db.save_population_stats(cycle, stats)
         db.close()
     """
 
@@ -99,7 +103,7 @@ class TronDatabase:
     def init_grid(self, grid_size: int = 200,
                   session_name: str = 'NexOS_Grid') -> int:
         """
-        Cree ou recupère une session THE_GRID.
+        Cree ou recupere une session THE_GRID.
         Retourne le grid_id actif.
         """
         cur = self._conn.cursor()
@@ -174,13 +178,12 @@ class TronDatabase:
         )
 
     # -------------------------------------------------------------------------
-    # PROGRAMS (ISOs)
+    # ISOS (Algorithmes Isomorphiques)
     # -------------------------------------------------------------------------
 
-    def save_programs(self, isos: list, cycle_number: int = 0):
+    def save_isos(self, isos: list, cycle_number: int = 0):
         """
-        Upsert en masse de tous les ISOs vivants.
-        Utilise INSERT OR REPLACE pour les mises a jour.
+        Upsert en masse de tous les ISOs vivants dans la table ISOS.
         """
         if not self._grid_id or not isos:
             return
@@ -217,8 +220,8 @@ class TronDatabase:
             ))
 
         self._conn.executemany(
-            """INSERT OR REPLACE INTO PROGRAMS
-               (program_id, grid_id, designation,
+            """INSERT OR REPLACE INTO ISOS
+               (iso_id, grid_id, designation,
                 pos_x, pos_z, energy_level, max_energy, status,
                 generation, age, children_count, mood,
                 gene_speed, gene_curiosity, gene_efficiency,
@@ -229,17 +232,17 @@ class TronDatabase:
             rows
         )
 
-    def derez_program(self, iso, cycle_number: int, cause: str = 'starvation'):
-        """Enregistre la mort d'un ISO (de-rez)."""
+    def derez_iso(self, iso, cycle_number: int, cause: str = 'starvation'):
+        """Enregistre la de-resolution d'un ISO."""
         if not self._grid_id:
             return
 
-        # Mettre a jour le statut dans PROGRAMS
+        # Mettre a jour le statut dans ISOS
         self._conn.execute(
-            """UPDATE PROGRAMS
+            """UPDATE ISOS
                SET status='DEREZZED',
                    derezzed_at=strftime('%Y-%m-%d %H:%M:%S','now')
-               WHERE program_id=?""",
+               WHERE iso_id=?""",
             (iso.id,)
         )
 
@@ -248,7 +251,7 @@ class TronDatabase:
         lvl = iso.knowledge.levels if hasattr(iso, 'knowledge') else {}
         self._conn.execute(
             """INSERT OR IGNORE INTO DEREZZED_LOG
-               (program_id, grid_id, derez_cause, derez_cycle,
+               (iso_id, grid_id, derez_cause, derez_cycle,
                 final_pos_x, final_pos_z, final_energy, final_age,
                 generation, children_count, total_harvested, distance_traveled,
                 know_physics, know_social, know_ecology,
@@ -318,7 +321,7 @@ class TronDatabase:
 
         self._conn.executemany(
             """INSERT INTO IDENTITY_DISCS
-               (program_id,
+               (iso_id,
                 know_physics, know_social, know_ecology,
                 know_logic, know_communication,
                 q_table_json,
@@ -328,7 +331,7 @@ class TronDatabase:
                 last_updated)
                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,
                        strftime('%Y-%m-%d %H:%M:%S','now'))
-               ON CONFLICT(program_id) DO UPDATE SET
+               ON CONFLICT(iso_id) DO UPDATE SET
                  know_physics=excluded.know_physics,
                  know_social=excluded.know_social,
                  know_ecology=excluded.know_ecology,
@@ -417,7 +420,7 @@ class TronDatabase:
                    ORDER BY cycle_number DESC
                    LIMIT -1 OFFSET ?
                )""",
-            (keep_last_n_cycles * 50,)  # estimation ~ 50 entites actives
+            (keep_last_n_cycles * 50,)
         )
 
     # -------------------------------------------------------------------------
@@ -606,18 +609,18 @@ class TronDatabase:
              entity_id, entity_type, description, data_json)
         )
 
-    def log_birth(self, iso, cycle_number: int):
-        """Evenement : naissance d'un ISO."""
-        self._log_event('BIRTH', cycle_number,
-                        entity_id=iso.id, entity_type='PROGRAM',
-                        description=f'ISO #{iso.id} gen{iso.generation} compile',
+    def log_emergence(self, iso, cycle_number: int):
+        """Evenement : emergence d'un ISO (naissance)."""
+        self._log_event('EMERGENCE', cycle_number,
+                        entity_id=iso.id, entity_type='ISO',
+                        description=f'ISO #{iso.id} gen{iso.generation} emerge du Grid',
                         data={'x': iso.x, 'z': iso.z,
                               'parent_ids': list(getattr(iso, 'parent_ids', []))})
 
-    def log_death(self, iso, cycle_number: int, cause: str = 'starvation'):
-        """Evenement : mort d'un ISO."""
-        self._log_event('DEATH', cycle_number,
-                        entity_id=iso.id, entity_type='PROGRAM',
+    def log_derez(self, iso, cycle_number: int, cause: str = 'starvation'):
+        """Evenement : de-resolution d'un ISO (mort)."""
+        self._log_event('DEREZ', cycle_number,
+                        entity_id=iso.id, entity_type='ISO',
                         description=f'ISO #{iso.id} de-rezze ({cause})',
                         data={'cause': cause, 'age': iso.age,
                               'energy': round(iso.energy, 2)})
@@ -733,13 +736,13 @@ class TronDatabase:
 
         # 1. ISOs
         isos = [iso for iso in population.isos if iso.alive]
-        self.save_programs(isos, cycle_number)
+        self.save_isos(isos, cycle_number)
 
         # 2. Disques d'identite
         if save_discs:
             self.save_identity_discs(isos, cycle_number, save_qtable=save_qtable)
 
-        # 3. Gardiens
+        # 3. Gardiens (programmes crees, pas des ISOs)
         if population.tron and population.tron.enabled:
             t = population.tron
             self.save_guardian('TRON', 'PROTECTOR',
@@ -814,7 +817,7 @@ class TronDatabase:
 
         elapsed = time.time() - start
         print(f"  [TRONDB] Sauvegarde DB OK ({elapsed:.3f}s) -- "
-              f"{len(isos)} programmes, cycle {cycle_number}")
+              f"{len(isos)} ISOs, cycle {cycle_number}")
         return True
 
     # -------------------------------------------------------------------------
