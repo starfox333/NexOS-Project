@@ -9,6 +9,10 @@ from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
 _STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
+_MODELS_DIR = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    'modèle de construction pour symmetra'
+)
 
 _grid = None
 _vtime = None
@@ -40,6 +44,11 @@ def create_app(config, grid, vtime, population, control=None):
     @app.route('/grid.js')
     def grid_js():
         return send_from_directory(_STATIC_DIR, 'grid.js')
+
+    @app.route('/models/<path:filename>')
+    def serve_model(filename):
+        """Sert les modeles 3D GLB pour le frontend Three.js."""
+        return send_from_directory(_MODELS_DIR, filename)
 
     # --- API REST : Etat ---
     @app.route('/api/state')

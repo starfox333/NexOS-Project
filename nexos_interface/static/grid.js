@@ -512,6 +512,17 @@ let symmetraMesh = null;
 let symmetraAura = null;
 let symmetraLabel = null;
 const structureMeshes = [];
+
+// Correspondance type de structure -> modele GLB Tron
+const MODEL_MAP = {
+  shelter:      'tron_buildings_1.glb',    // Architecture Tron generique
+  library:      'tron_iso_city.glb',       // Cite ISO = temple du savoir
+  energy_plant: 'tron_disk.glb',           // Disque identite = source d'energie
+  comm_tower:   'tron_buildings_1.glb',    // Batiments Tron (tour de comm)
+  arena:        'end_of_line_club.glb',    // End of Line Club = arene parfaite
+};
+const gltfModels = {};  // cache: filename -> THREE.Group (template normalise)
+
 // Couleurs par type de structure (Tron style)
 const STRUCT_COLORS = {
   shelter:      0xff44ff,  // magenta
@@ -716,11 +727,104 @@ function updateDaedalus(daedalusData) {
 }
 
 /**
+ * Cree le mesh d'une structure a partir d'un modele GLB Tron charge.
+ * Garde les elements visuels de base (halo, label) de la version procedurale.
+ */
+function _createStructureMeshFromGLB(sType, color, radius) {
+  const modelFile = MODEL_MAP[sType];
+  const template = gltfModels[modelFile];
+
+  // Empreinte lumineuse au sol
+  const baseGeo = new THREE.CircleGeometry(radius * 1.2, sType === 'arena' ? 8 : 6);
+  const baseMat = new THREE.MeshBasicMaterial({
+    color: color, transparent: true, opacity: 0.08, side: THREE.DoubleSide
+  });
+  const base = new THREE.Mesh(baseGeo, baseMat);
+  base.rotation.x = -Math.PI / 2;
+  base.position.y = 0.15;
+  scene.add(base);
+
+  // Clone du modele GLB (geometries partagees, transforms independants)
+  const building = template.clone(true);
+
+  // Dimensionner : faire tenir le modele dans radius * 2 unites
+  const box1 = new THREE.Box3().setFromObject(building);
+  const size = new THREE.Vector3();
+  box1.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0) {
+    building.scale.multiplyScalar((radius * 2.0) / maxDim);
+  }
+
+  // Centrer sur le sol (X/Z centre, Y = pose au sol)
+  const box2 = new THREE.Box3().setFromObject(building);
+  const center = new THREE.Vector3();
+  box2.getCenter(center);
+  building.position.x -= center.x;
+  building.position.z -= center.z;
+  building.position.y -= box2.min.y;
+
+  // Transparence + teinte neon Tron sur chaque mesh enfant
+  building.traverse(child => {
+    if (child.isMesh && child.material) {
+      child.material = child.material.clone();
+      child.material.transparent = true;
+      child.material.opacity = 0.85;
+      if (child.material.emissive !== undefined) {
+        child.material.emissive.setHex(color);
+        child.material.emissiveIntensity = 0.15;
+      }
+    }
+  });
+
+  // Interface .material.opacity pour updateStructures() (Group n'a pas de .material natif)
+  const virtualMat = { _opacity: 0.85 };
+  Object.defineProperty(virtualMat, 'opacity', {
+    get() { return virtualMat._opacity; },
+    set(val) {
+      virtualMat._opacity = val;
+      building.traverse(child => {
+        if (child.isMesh && child.material) child.material.opacity = val;
+      });
+    }
+  });
+  building.material = virtualMat;
+
+  scene.add(building);
+
+  // Halo atmospherique (identique a la version procedurale)
+  const glowGeo = new THREE.SphereGeometry(radius, 16, 8);
+  const glowMat = new THREE.MeshBasicMaterial({
+    color: color, transparent: true, opacity: 0.04
+  });
+  const glow = new THREE.Mesh(glowGeo, glowMat);
+  glow.position.y = 4;
+  scene.add(glow);
+
+  // Label sprite
+  const canvas = document.createElement('canvas');
+  canvas.width = 160; canvas.height = 80;
+  const ctx = canvas.getContext('2d');
+  const tex = new THREE.CanvasTexture(canvas);
+  const spMat = new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.7 });
+  const label = new THREE.Sprite(spMat);
+  label.scale.set(8, 4, 1);
+  scene.add(label);
+
+  return { base, building, accent: null, glow, label, canvas, ctx, tex, _type: sType };
+}
+
+/**
  * Cree le mesh 3D Tron-style pour un type de structure.
  * Buildings sombres avec aretes neon lumineuses.
  * Inspire des cites de la Grille de Tron.
  */
 function _createStructureMesh(sType, color, radius) {
+  // Utiliser le modele GLB Tron si disponible, sinon geometrie procedurale
+  if (MODEL_MAP[sType] && gltfModels[MODEL_MAP[sType]]) {
+    return _createStructureMeshFromGLB(sType, color, radius);
+  }
+
   let base, building, accent, glow;
 
   // Couleur sombre pour le corps du batiment (10% de la couleur neon)
@@ -1314,7 +1418,50 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+/**
+ * Charge les modeles GLB Tron depuis le serveur.
+ * Les structures existantes sont reconstruites une fois tous les modeles charges.
+ */
+function loadStructureModels() {
+  if (typeof THREE.GLTFLoader === 'undefined') {
+    console.warn('[NexOS] GLTFLoader indisponible -- geometrie procedurale utilisee');
+    return;
+  }
+  const loader = new THREE.GLTFLoader();
+  const filesToLoad = [...new Set(Object.values(MODEL_MAP))];
+  let remaining = filesToLoad.length;
+
+  filesToLoad.forEach(file => {
+    loader.load('/models/' + file,
+      (gltf) => {
+        gltfModels[file] = gltf.scene;
+        console.log('[NexOS] Modele GLB charge :', file);
+        remaining--;
+        if (remaining === 0) {
+          // Reconstruire toutes les structures avec les vrais modeles Tron
+          for (const m of structureMeshes) {
+            if (!m) continue;
+            if (m.base)     scene.remove(m.base);
+            if (m.building) scene.remove(m.building);
+            if (m.accent)   scene.remove(m.accent);
+            if (m.glow)     scene.remove(m.glow);
+            if (m.label)    scene.remove(m.label);
+          }
+          structureMeshes.length = 0;
+          console.log('[NexOS] Structures reconstruites avec modeles Tron GLB');
+        }
+      },
+      undefined,
+      (err) => {
+        console.warn('[NexOS] Echec chargement GLB :', file, err.message || err);
+        remaining--;
+      }
+    );
+  });
+}
+
 animate();
+loadStructureModels();
 setInterval(fetchState, 1000);
 setInterval(fetchLogs, 3000);
 fetchState();
